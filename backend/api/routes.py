@@ -46,12 +46,16 @@ class DetectedWord(BaseModel):
     methods: list[str] = []
     similarity: float | None = None
     distance: int | None = None
+    original_confidence: float = 1.0
+    adjusted_confidence: float = 1.0
+    context_explanation: str = ""
 
 
 class CommentResponse(BaseModel):
     comment: str
     status: str
     detected_words: list[dict]
+    high_confidence_detected: list[dict] = []
     algorithm_times: dict
     total_time: float
 
@@ -218,12 +222,22 @@ async def get_algorithms():
                 "description": "Recursively generates all possible character combinations from symbol-substituted text. Uses Trie-based pruning to reduce the exponential search space. Handles mappings like @ → a, $ → s, ! → i.",
                 "used_in": "Step 4 of detection pipeline",
             },
+            {
+                "name": "Negation & Context Analysis",
+                "category": "Pattern Matching & Sentiment Analysis",
+                "time_complexity": "O(n)",
+                "space_complexity": "O(k)",
+                "purpose": "Reduce false positives by analyzing context around offensive words",
+                "description": "Detects negations (not, no, never, etc.), questions, and irony/sarcasm indicators. Adjusts confidence scores accordingly. Examples: 'not stupid' → reduced confidence, 'stupid?' → slight reduction, 'lol stupid' → possible irony.",
+                "used_in": "Step 5 of detection pipeline (post-processing)",
+            },
         ],
         "pipeline": [
             {"step": 1, "algorithm": "Greedy Scan", "description": "Quick first-pass filtering using longest match"},
             {"step": 2, "algorithm": "Aho-Corasick", "description": "Multi-pattern detection in single pass"},
             {"step": 3, "algorithm": "Levenshtein (DP)", "description": "Similarity-based detection for modified words"},
             {"step": 4, "algorithm": "Backtracking", "description": "Symbol substitution decoding"},
+            {"step": 5, "algorithm": "Negation & Context Analysis", "description": "Context-aware confidence adjustment based on negations, questions, and irony"},
         ],
         "paradigms": [
             "Greedy Algorithms",

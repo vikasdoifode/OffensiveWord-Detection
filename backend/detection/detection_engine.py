@@ -18,6 +18,7 @@ from algorithms.aho_corasick import AhoCorasick
 from algorithms.levenshtein import find_similar_words
 from algorithms.greedy_match import greedy_scan
 from algorithms.backtracking_obfuscation import detect_obfuscated
+from algorithms.negation_handler import NegationHandler
 
 
 class DetectionEngine:
@@ -41,9 +42,13 @@ class DetectionEngine:
             self.aho_corasick.add_pattern(word)
         self.aho_corasick.build()
 
+        # Initialize negation handler for context-aware detection
+        self.negation_handler = NegationHandler(window_size=5)
+
         print(f"[DetectionEngine] Loaded {len(self.offensive_words)} offensive words")
         print(f"[DetectionEngine] Trie built with {len(self.trie)} words")
         print(f"[DetectionEngine] Aho-Corasick automaton built with {len(self.aho_corasick.patterns)} patterns")
+        print(f"[DetectionEngine] Negation handler initialized for context-aware detection")
 
     def add_word(self, word: str) -> bool:
         """Dynamically add a new offensive word."""
@@ -156,12 +161,44 @@ class DetectionEngine:
 
         # ── Compute results ──
         detected_list = list(all_detected.values())
+        
+        # ── Step 5: Apply Negation & Context Analysis ──
+        start = time.perf_counter()
+        for detected_word in detected_list:
+            # Find the position of this word in the comment
+            word_pos = comment.lower().find(detected_word["input"].lower())
+            if word_pos != -1:
+                # Calculate adjusted confidence based on context
+                original_confidence = 1.0
+                adjusted_confidence = self.negation_handler.calculate_adjusted_confidence(
+                    original_confidence,
+                    comment,
+                    word_pos,
+                    word_pos + len(detected_word["input"])
+                )
+                
+                detected_word["original_confidence"] = original_confidence
+                detected_word["adjusted_confidence"] = round(adjusted_confidence, 2)
+                detected_word["context_explanation"] = self.negation_handler.get_context_explanation(
+                    comment,
+                    word_pos,
+                    word_pos + len(detected_word["input"]),
+                    original_confidence,
+                    adjusted_confidence
+                )
+        
+        algorithm_times["negation_context"] = round((time.perf_counter() - start) * 1000, 2)
+        
+        # Filter out words with very low adjusted confidence (< 0.3)
+        high_confidence_words = [w for w in detected_list if w.get("adjusted_confidence", 1.0) >= 0.3]
+        
         total_time = sum(algorithm_times.values())
 
         return {
             "comment": comment,
-            "status": "offensive" if detected_list else "safe",
-            "detected_words": detected_list,
+            "status": "offensive" if high_confidence_words else "safe",
+            "detected_words": detected_list,  # Return all for transparency
+            "high_confidence_detected": high_confidence_words,
             "algorithm_times": algorithm_times,
             "total_time": round(total_time, 2),
         }
