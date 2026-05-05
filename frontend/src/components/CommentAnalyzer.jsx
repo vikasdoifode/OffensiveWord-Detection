@@ -37,11 +37,15 @@ export default function CommentAnalyzer() {
 
   const exampleComments = [
     "You are stup1d and id10t",
+    "You are not stupid at all",
     "s.t.u.p.i.d people like you should quit",
     "This is a great video, love it!",
     "You are a f00l and @$$hole",
     "What a m0r0n, go away l0ser",
     "You are $tup!d and should leave",
+    "That's not stupid, just different",
+    "Is that really stupid?",
+    "That is so stupid lol",
   ];
 
   return (
@@ -156,7 +160,7 @@ export default function CommentAnalyzer() {
                   </h3>
                   <p className="text-sm text-gray-400 mt-0.5">
                     {result.detected_words.length > 0
-                      ? `${result.detected_words.length} offensive word(s) detected`
+                      ? `${result.detected_words.length} word(s) detected${result.high_confidence_detected?.length > 0 ? ` (${result.high_confidence_detected.length} high confidence)` : ''}`
                       : 'No offensive content detected'}
                   </p>
                 </div>
